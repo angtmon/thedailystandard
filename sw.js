@@ -1,5 +1,9 @@
-const CACHE_NAME = 'daily-standard-v7';
-const ASSETS = ['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./app-safety.js','./hardening.js','./quotes-import.js','./device-transfer.js','./home-quote-order.js'];
+const CACHE_NAME = 'daily-standard-v8';
+const ASSETS = [
+  './', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png',
+  './app-safety.js', './hardening.js', './quotes-import.js', './device-transfer.js',
+  './home-quote-order.js', './pwa-updates.js'
+];
 
 const APP_BRIDGE = `window.DailyStandardQuoteBridge={
  getState:()=>data,
@@ -20,7 +24,8 @@ function injectAppScripts(html) {
     ['hardening.js', '<script src="./hardening.js" defer></script>'],
     ['quotes-import.js', '<script src="./quotes-import.js" defer></script>'],
     ['device-transfer.js', '<script src="./device-transfer.js" defer></script>'],
-    ['home-quote-order.js', '<script src="./home-quote-order.js" defer></script>']
+    ['home-quote-order.js', '<script src="./home-quote-order.js" defer></script>'],
+    ['pwa-updates.js', '<script src="./pwa-updates.js" defer></script>']
   ];
   const missing = scripts.filter(([name]) => !html.includes(`src="./${name}"`)).map(([, tag]) => tag);
   if (missing.length) html = html.replace('</body>', `${missing.join('')}</body>`);
@@ -30,15 +35,22 @@ function injectAppScripts(html) {
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    await cache.addAll(ASSETS);
-    await self.skipWaiting();
+    // Fetch a complete new asset set before this worker can be offered for activation.
+    // cache:reload avoids a stale browser HTTP cache making a partial release look current.
+    await Promise.all(ASSETS.map(async asset => {
+      const request = new Request(new URL(asset, self.registration.scope), { cache: 'reload' });
+      const response = await fetch(request);
+      if (!response.ok) throw new Error(`Could not precache ${asset}: ${response.status}`);
+      await cache.put(request, response);
+    }));
+    // Intentionally wait. The page asks the user before sending SKIP_WAITING.
   })());
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter(key => key.startsWith('daily-standard-') && key !== CACHE_NAME).map(key => caches.delete(key)));
+    // Keep previous release caches: other already-open tabs may still be using them.
+    // App data lives in localStorage and is never read, migrated, or deleted here.
     await self.clients.claim();
   })());
 });

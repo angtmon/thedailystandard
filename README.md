@@ -2,6 +2,12 @@
 
 Offline-first personal habit tracker PWA for GitHub Pages.
 
+## PWA updates and data preservation
+
+The app checks for service-worker updates when it opens, returns to the foreground, reconnects, and periodically while visible. A new release is downloaded and staged in a separate versioned cache. When ready, the app offers **Update now** or **Later**. Updates wait for the user; they do not activate or reload automatically. **Update now** is deferred while a dialog is open or a form field has unsaved edits.
+
+The app data remains in its existing `daily-standard-v1` localStorage record. The service worker never clears, migrates, or overwrites that record, and older asset caches are retained so open tabs can finish safely. There is currently no IndexedDB database or database schema migration. Keep regular JSON backups as an additional safeguard.
+
 ## Daily quote display
 
 The Today dashboard shuffles the personal quote library into a random order once per local calendar day. The order and current position are saved on that device, so reloads keep the same quote sequence for that day; tapping **Another** advances through the shuffled list without repeating a quote until it wraps. A changed quote library triggers a fresh shuffle. The quote library itself and its order are not modified.
@@ -25,7 +31,7 @@ The app keeps its existing `daily-standard-v1` localStorage data model. It is no
 - **Data safety:** `app-safety.js` contains pure validation/scheduling helpers; restore validates the full backup before replacement, remaps imported IDs, retains only valid records, and downloads existing data first. CSV exports escape spreadsheet formula cells.
 - **Habit logic:** scheduling, pause, status, and daily-stat functions are guarded against invalid dates and malformed entries. Weekly-frequency semantics remain flexible-any-day; no weekly quota reporting is claimed yet.
 - **Accessibility:** dialogs support Escape, focus containment and focus return; rendered controls and navigation receive accessible names where possible.
-- **PWA lifecycle:** service worker uses a versioned cache, network-first app shell with offline fallback, and cached asset delivery.
+- **PWA lifecycle:** staged worker update notification with explicit consent to activate/reload, conservative unsaved-form protection, versioned static caches, and no app-data cleanup.
 - **Tests:** run `node --test` to exercise date validation, schedule/pause/status behavior, quote keys, CSV escaping, and backup validation. Unit-level tests are not browser/device testing.
 
 ## Quote import
