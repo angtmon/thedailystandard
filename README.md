@@ -2,17 +2,17 @@
 
 Offline-first personal habit tracker PWA for GitHub Pages.
 
-## Move your data to a new phone or device
+## Move data to a new phone or device
 
 Your app data is stored locally in the browser, so it does not move automatically with the app or your GitHub Pages site. Use the full JSON backup to transfer it:
 
 1. On the old phone, open **Settings → Export & backup → Move data to another device** (or tap **Full backup (.json)**).
 2. Export the backup. Transfer the downloaded JSON privately using AirDrop, iCloud Drive, a cable, or another trusted method. The backup may contain private journal reflections, so do not post or email it to an untrusted recipient.
 3. On the new phone, open the same HTTPS app in Safari, install it with **Share → Add to Home Screen** if desired, then open it once.
-4. Go to **Settings → Export & backup → Restore backup** and select the JSON file from Files or Downloads.
+4. Go to **Settings → Export & backup → Restore backup** and select the JSON file from Files or Downloads. A first-launch **Import backup** button is also shown when the app has no saved habits, quotes, or reflections.
 5. Confirm the restore. The app validates it before replacing data and downloads a backup of the new device's current data first. Verify your habits, quotes, and reflections before deleting the transferred file.
 
-This is a manual backup/restore, not synchronization. Later edits on one device will not appear on another automatically. Keep periodic backups in a private location. No cloud account or paid service is required.
+This is a manual backup/restore, not synchronization. Later edits on one device will not appear on another automatically. Keep periodic backups in a private location. Backups are plain JSON and are not encrypted; no cloud account or paid service is required.
 
 ## Engineering changes
 

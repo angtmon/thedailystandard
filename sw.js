@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daily-standard-v5';
+const CACHE_NAME = 'daily-standard-v6';
 const ASSETS = ['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./app-safety.js','./hardening.js','./quotes-import.js','./device-transfer.js'];
 
 const APP_BRIDGE = `window.DailyStandardQuoteBridge={
