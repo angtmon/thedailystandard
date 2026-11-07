@@ -2,6 +2,10 @@
 
 Offline-first personal habit tracker PWA for GitHub Pages.
 
+## Daily quote display
+
+The Today dashboard shuffles the personal quote library into a random order once per local calendar day. The order and current position are saved on that device, so reloads keep the same quote sequence for that day; tapping **Another** advances through the shuffled list without repeating a quote until it wraps. A changed quote library triggers a fresh shuffle. The quote library itself and its order are not modified.
+
 ## Move data to a new phone or device
 
 Your app data is stored locally in the browser, so it does not move automatically with the app or your GitHub Pages site. Use the full JSON backup to transfer it:
