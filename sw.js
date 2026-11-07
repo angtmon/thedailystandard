@@ -1,5 +1,14 @@
-const CACHE='daily-standard-v2';
-const ASSETS=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./hardening.js'];
+const CACHE='daily-standard-v3';
+const ASSETS=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./hardening.js','./quotes-import.js'];
+const BRIDGE=`window.DailyStandardQuoteBridge={getQuotes:()=>data.quotes||[],addQuotes:(items)=>{let added=0,duplicates=0;const key=value=>String(value??'').normalize('NFKC').toLowerCase().replace(/[“”‘’"']/g,'').replace(/[–—−]/g,'-').replace(/[^\\p{L}\\p{N}]+/gu,' ').trim().replace(/\\s+/g,' ');const seen=new Set((data.quotes||[]).map(q=>key(q.text)));for(const item of items){const text=String(item.text??'').trim();if(!text)continue;const normalized=key(text);if(!normalized||seen.has(normalized)){duplicates++;continue;}seen.add(normalized);data.quotes.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),text,author:String(item.author??''),category:String(item.category??'Mindset'),favorite:Boolean(item.favorite)});added++;}save();return {added,duplicates};},openModal,closeModal,render};`;
+function injectScripts(html){
+  if(!html.includes('DailyStandardQuoteBridge')) html=html.replace('</script>',`${BRIDGE}</script>`);
+  const additions=[];
+  if(!html.includes('src="./hardening.js"')) additions.push('<script src="./hardening.js" defer></script>');
+  if(!html.includes('src="./quotes-import.js"')) additions.push('<script src="./quotes-import.js" defer></script>');
+  if(additions.length) html=html.replace('</body>',`${additions.join('')}</body>`);
+  return html;
+}
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));
   self.skipWaiting();
@@ -17,17 +26,10 @@ self.addEventListener('fetch',event=>{
       const cache=await caches.open(CACHE);
       const cached=await cache.match(event.request)||await cache.match('./index.html')||await cache.match('./');
       let response=cached;
-      try{
-        const fresh=await fetch(event.request);
-        if(fresh.ok){await cache.put(event.request,fresh.clone());response=fresh;}
-      }catch{}
+      try{const fresh=await fetch(event.request);if(fresh.ok){await cache.put(event.request,fresh.clone());response=fresh;}}catch{}
       if(!response)return new Response('The app is not available offline yet. Connect once and reload.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}});
-      const html=await response.text();
-      if(!html.includes('hardening.js')){
-        const injected=html.replace('</body>','<script src="./hardening.js" defer></script></body>');
-        return new Response(injected,{status:response.status,statusText:response.statusText,headers:new Headers([...response.headers,['Content-Type','text/html; charset=utf-8']])});
-      }
-      return new Response(html,{status:response.status,statusText:response.statusText,headers:response.headers});
+      const headers=new Headers(response.headers);headers.set('Content-Type','text/html; charset=utf-8');
+      return new Response(injectScripts(await response.text()),{status:response.status,statusText:response.statusText,headers});
     })());
     return;
   }

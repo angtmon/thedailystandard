@@ -1,48 +1,41 @@
 # The Daily Standard
 
-An offline-first, free, single-user habit tracker PWA for GitHub Pages.
+Offline-first personal habit tracker PWA for GitHub Pages.
 
-## Current application audit
+## Quote import
 
-The existing app is a dependency-free HTML/CSS/JavaScript application. It stores version-1 application data in browser `localStorage` under `daily-standard-v1`. The hardening update keeps that data model and its current features intact.
+In **Quotes**, choose **Import CSV / Excel** to upload a `.csv`, `.txt`, or `.xlsx` file. The app previews the first worksheet/file, identifies common headers, shows new quotes and duplicate counts, and imports only after confirmation. Existing quotes are preserved.
 
-### Implemented
+Suggested CSV or Excel columns (header names are flexible):
 
-- Daily check-off and measurable habits, with daily, selected-weekday, or flexible-any-day schedules.
-- Habit notes, historical editing, pauses with reasons, archiving/reactivation, and permanent deletion with confirmation.
-- Calendar, daily and monthly/30-day completion summaries.
-- Personal quotes, keyword-based categories, bulk text import, search, favorites, and CSV export.
-- Date-keyed private reflections and search.
-- Weekly rotating local verse excerpts and verse history.
-- Customizable Today dashboard, dark/light theme, optional in-app reminders, JSON backup/restore, CSV export, and printable reports.
-- Installable PWA manifest and service worker for cached offline access after a successful initial visit.
+| Quote | Author | Category | Favorite |
+|---|---|---|---|
+| Be comfortable being uncomfortable. | Unknown | Resilience | No |
+| We become what we think about. | Earl Nightingale | Mindset | Yes |
 
-### Known limitations retained
+A file without headers uses columns in this order: quote, author, category, favorite. Quote text is required; the other columns are optional. Duplicate checks normalize whitespace, capitalization, and common quote punctuation. Import size is limited to 25 MB.
 
-- Data remains local to the browser/device; this update does not add cloud sync or IndexedDB migration.
-- Existing scheduling supports daily, selected weekdays, and flexible tracking on any day, but not a numerical “N times per week” goal.
-- The verse collection is a small set of prototype excerpts; it does not claim to be NLT or another fully licensed translation.
-- Category assignment is offline keyword matching, not semantic AI.
-- Timers cannot provide reliable background notifications after the app is closed, especially on iOS. The reminder remains best-effort while open.
-- No iPhone/desktop device testing was performed as part of this source change.
+CSV and TXT parsing works offline. `.xlsx` support downloads the open-source SheetJS browser parser from jsDelivr the first time an Excel file is selected. The workbook is parsed locally and is not uploaded, but Excel import requires an internet connection for that one-time parser download. No subscription or API key is required. The rest of the app does not load this dependency unless Excel import is used.
 
-## Safety improvements in this update
+## Existing functionality
 
-- Restore validates the complete supported structure before changing stored data, rejects malformed or oversized files, remaps imported habit and quote IDs to safe generated IDs, and downloads a backup of current data before replacement.
-- Existing v1 records are mapped to their remapped habit IDs; unsupported/orphaned record references are ignored rather than executable.
-- Today’s quote is stable for the local calendar day and manual rotation is retained for that date.
-- CSV exports prefix formula-leading cells to reduce spreadsheet formula injection risk.
-- JSON exports include a backup format version and export timestamp while keeping the app’s stored data format compatible.
-- Dialogs gain Escape handling, focus return and basic focus trapping; unlabeled controls and navigation receive accessible names where possible.
-- Service worker cache is versioned, refreshes the app page, retains offline fallback, and injects the hardening script from a relative URL compatible with GitHub Pages subpaths.
+- Daily and measurable habit tracking, selected weekday scheduling, pauses, archiving, historical entries and notes.
+- Calendar, daily/monthly summaries, streak display, and milestone list.
+- Personal quote library, favorites, search, bulk paste, CSV export and offline keyword categorization.
+- Date-keyed reflections and search.
+- Weekly local Bible verse excerpt rotation.
+- Dark/light theme, customizable dashboard, JSON backup/restore, CSV export, and printable report.
+- Installable PWA and service-worker offline cache.
 
-## Install on iPhone (GitHub Pages)
+## Limitations
 
-1. In this repository, open **Settings → Pages** and publish the `main` branch from `/(root)`.
-2. Open the published HTTPS site in Safari on iPhone.
-3. Tap **Share → Add to Home Screen**.
-4. Open the installed app once while online so its files are cached for offline use.
+- Data remains in browser `localStorage` on that device. Export backups regularly; there is no cloud sync or IndexedDB migration.
+- Weekly habit frequency is still represented as flexible-any-day in daily statistics; a weekly target is stored but is not yet used to calculate weekly success accurately.
+- Quote categorization is offline keyword matching, not semantic AI.
+- The verse collection is a small prototype excerpt set; it does not claim to be NLT or another fully licensed translation.
+- Background timers cannot send reliable notifications while the app is closed, especially on iOS.
+- Source changes have not been tested on physical iPhone or desktop browsers in this update.
 
-## Data and privacy
+## iPhone installation
 
-All habits, quotes, and reflections stay in browser storage unless you explicitly export them. Clearing site data or changing devices can remove access to local data, so export JSON backups regularly. Restoring replaces the current dataset only after validation and confirmation; the current dataset is downloaded first. Do not store sensitive notes on a shared device. No account, analytics, external AI, or cloud service is added.
+Publish the repository root with GitHub Pages. Open its HTTPS URL in Safari on iPhone, choose **Share → Add to Home Screen**, then launch the installed app once online to cache its files for offline use.
