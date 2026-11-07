@@ -1,40 +1,81 @@
-const CACHE='daily-standard-v3';
-const ASSETS=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./hardening.js','./quotes-import.js'];
-const BRIDGE=`window.DailyStandardQuoteBridge={getQuotes:()=>data.quotes||[],addQuotes:(items)=>{let added=0,duplicates=0;const key=value=>String(value??'').normalize('NFKC').toLowerCase().replace(/[“”‘’"']/g,'').replace(/[–—−]/g,'-').replace(/[^\\p{L}\\p{N}]+/gu,' ').trim().replace(/\\s+/g,' ');const seen=new Set((data.quotes||[]).map(q=>key(q.text)));for(const item of items){const text=String(item.text??'').trim();if(!text)continue;const normalized=key(text);if(!normalized||seen.has(normalized)){duplicates++;continue;}seen.add(normalized);data.quotes.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),text,author:String(item.author??''),category:String(item.category??'Mindset'),favorite:Boolean(item.favorite)});added++;}save();return {added,duplicates};},openModal,closeModal,render};`;
-function injectScripts(html){
-  if(!html.includes('DailyStandardQuoteBridge')) html=html.replace('</script>',`${BRIDGE}</script>`);
-  const additions=[];
-  if(!html.includes('src="./hardening.js"')) additions.push('<script src="./hardening.js" defer></script>');
-  if(!html.includes('src="./quotes-import.js"')) additions.push('<script src="./quotes-import.js" defer></script>');
-  if(additions.length) html=html.replace('</body>',`${additions.join('')}</body>`);
+const CACHE_NAME = 'daily-standard-v4';
+const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './app-safety.js', './hardening.js', './quotes-import.js'];
+
+const APP_BRIDGE = `window.DailyStandardQuoteBridge={
+ getState:()=>data,
+ getQuotes:()=>data.quotes||[],
+ addQuotes:(items)=>{let added=0,duplicates=0;const key=value=>window.DailyStandardSafety.quoteKey(value);const seen=new Set((data.quotes||[]).map(q=>key(q.text)));for(const item of items){const text=window.DailyStandardSafety.text(item.text);if(!text)continue;const normalized=key(text);if(!normalized||seen.has(normalized)){duplicates++;continue;}seen.add(normalized);data.quotes.push({id:window.DailyStandardSafety.safeId(),text,author:window.DailyStandardSafety.text(item.author,2000),category:window.DailyStandardSafety.text(item.category,200)||window.DailyStandardSafety.categoryFromText(text),favorite:Boolean(item.favorite)});added++;}save();return {added,duplicates};},
+ restoreState:(next)=>{if(!window.DailyStandardSafety||!next)return false;const previous=data;try{data=next;if(!save()){data=previous;return false;}return true;}catch(error){data=previous;return false;}},
+ downloadBackup:()=>{const payload={...data,backupFormatVersion:1,exportedAt:new Date().toISOString()};window.DailyStandardDownload('daily-standard-backup-'+TODAY()+'.json',JSON.stringify(payload,null,2),'application/json');},
+ exportHabitCSV:()=>{const rows=[['Date','Habit','Value','Target','Unit','Status','Note']];for(const date of Object.keys(data.records||{}).sort())for(const habit of data.habits||[]){const record=data.records[date]?.[habit.id];if(record)rows.push([date,habit.name,record.value,habit.target,habit.unit,status(habit,date),record.note]);}const csv=rows.map(row=>row.map(window.DailyStandardSafety.csvCell).join(',')).join('\\r\\n');window.DailyStandardDownload('daily-standard-habits-'+TODAY()+'.csv',csv,'text/csv;charset=utf-8');},
+ exportQuoteCSV:()=>{const rows=[['Quote','Author','Category','Favorite'],...(data.quotes||[]).map(q=>[q.text,q.author,q.category,q.favorite?'Yes':'No'])];const csv=rows.map(row=>row.map(window.DailyStandardSafety.csvCell).join(',')).join('\\r\\n');window.DailyStandardDownload('daily-standard-quotes-'+TODAY()+'.csv',csv,'text/csv;charset=utf-8');},
+ openModal,closeModal,render
+};
+window.DailyStandardDownload=(name,content,type)=>{const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);};`;
+
+function injectAppScripts(html) {
+  if (!html.includes('DailyStandardQuoteBridge')) html = html.replace('</script>', `${APP_BRIDGE}</script>`);
+  const scripts = [
+    ['app-safety.js', '<script src="./app-safety.js" defer></script>'],
+    ['hardening.js', '<script src="./hardening.js" defer></script>'],
+    ['quotes-import.js', '<script src="./quotes-import.js" defer></script>']
+  ];
+  const missing = scripts.filter(([name]) => !html.includes(`src="./${name}"`)).map(([, tag]) => tag);
+  if (missing.length) html = html.replace('</body>', `${missing.join('')}</body>`);
   return html;
 }
-self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)));
-  self.skipWaiting();
+
+self.addEventListener('install', event => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.addAll(ASSETS);
+    await self.skipWaiting();
+  })());
 });
-self.addEventListener('activate',event=>{
-  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('daily-standard-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));
+
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(key => key.startsWith('daily-standard-') && key !== CACHE_NAME).map(key => caches.delete(key)));
+    await self.clients.claim();
+  })());
 });
-self.addEventListener('fetch',event=>{
-  if(event.request.method!=='GET')return;
-  const url=new URL(event.request.url);
-  if(url.origin!==self.location.origin)return;
-  const isPage=event.request.mode==='navigate'||url.pathname.endsWith('/index.html')||url.pathname.endsWith('/');
-  if(isPage){
-    event.respondWith((async()=>{
-      const cache=await caches.open(CACHE);
-      const cached=await cache.match(event.request)||await cache.match('./index.html')||await cache.match('./');
-      let response=cached;
-      try{const fresh=await fetch(event.request);if(fresh.ok){await cache.put(event.request,fresh.clone());response=fresh;}}catch{}
-      if(!response)return new Response('The app is not available offline yet. Connect once and reload.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}});
-      const headers=new Headers(response.headers);headers.set('Content-Type','text/html; charset=utf-8');
-      return new Response(injectScripts(await response.text()),{status:response.status,statusText:response.statusText,headers});
+
+self.addEventListener('message', event => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+  const navigation = event.request.mode === 'navigate' || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/');
+
+  if (navigation) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      try {
+        const fresh = await fetch(event.request);
+        if (fresh.ok) {
+          const html = injectAppScripts(await fresh.clone().text());
+          const result = new Response(html, { status: fresh.status, statusText: fresh.statusText, headers: fresh.headers });
+          await cache.put(event.request, result.clone());
+          return result;
+        }
+      } catch (_) { /* Network unavailable; use last working app shell. */ }
+      const cached = await cache.match(event.request) || await cache.match('./index.html') || await cache.match('./');
+      if (cached) return cached;
+      return new Response('The app has not been cached yet. Connect to the internet and reload once.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
     })());
     return;
   }
-  event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{
-    if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}
+
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(event.request);
+    if (cached) return cached;
+    const response = await fetch(event.request);
+    if (response.ok) await cache.put(event.request, response.clone());
     return response;
-  })));
+  })());
 });
