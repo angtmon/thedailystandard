@@ -1,5 +1,5 @@
-const CACHE_NAME = 'daily-standard-v4';
-const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './app-safety.js', './hardening.js', './quotes-import.js'];
+const CACHE_NAME = 'daily-standard-v5';
+const ASSETS = ['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./app-safety.js','./hardening.js','./quotes-import.js','./device-transfer.js'];
 
 const APP_BRIDGE = `window.DailyStandardQuoteBridge={
  getState:()=>data,
@@ -18,7 +18,8 @@ function injectAppScripts(html) {
   const scripts = [
     ['app-safety.js', '<script src="./app-safety.js" defer></script>'],
     ['hardening.js', '<script src="./hardening.js" defer></script>'],
-    ['quotes-import.js', '<script src="./quotes-import.js" defer></script>']
+    ['quotes-import.js', '<script src="./quotes-import.js" defer></script>'],
+    ['device-transfer.js', '<script src="./device-transfer.js" defer></script>']
   ];
   const missing = scripts.filter(([name]) => !html.includes(`src="./${name}"`)).map(([, tag]) => tag);
   if (missing.length) html = html.replace('</body>', `${missing.join('')}</body>`);
