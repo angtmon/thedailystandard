@@ -6,6 +6,11 @@ Offline-first personal habit tracker PWA for GitHub Pages.
 
 In **Quotes**, choose **Import CSV / Excel** to upload a `.csv`, `.txt`, or `.xlsx` file. The app previews the first worksheet/file, identifies common headers, shows new quotes and duplicate counts, and imports only after confirmation. Existing quotes are preserved.
 
+For quick use, there are also two convenience actions:
+
+- **Paste clipboard**: pastes clipboard content directly into the quote importer.
+- **Download template**: downloads an Excel-ready CSV template and a .xlsx template when SheetJS is available.
+
 Suggested CSV or Excel columns (header names are flexible):
 
 | Quote | Author | Category | Favorite |
@@ -15,7 +20,7 @@ Suggested CSV or Excel columns (header names are flexible):
 
 A file without headers uses columns in this order: quote, author, category, favorite. Quote text is required; the other columns are optional. Duplicate checks normalize whitespace, capitalization, and common quote punctuation. Import size is limited to 25 MB.
 
-CSV and TXT parsing works offline. `.xlsx` support downloads the open-source SheetJS browser parser from jsDelivr the first time an Excel file is selected. The workbook is parsed locally and is not uploaded, but Excel import requires an internet connection for that one-time parser download. No subscription or API key is required. The rest of the app does not load this dependency unless Excel import is used.
+CSV and TXT parsing works offline. `.xlsx` support downloads the open-source SheetJS browser parser from jsDelivr the first time an Excel file is selected. The workbook is parsed locally and is not uploaded anywhere. No subscription or API key is required.
 
 ## Existing functionality
 
