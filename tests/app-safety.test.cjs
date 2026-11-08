@@ -5,7 +5,7 @@ const safety = require('../app-safety.js');
 const daily = { id: 'daily', name: 'Daily', frequency: 'daily', target: 1, created: '2026-01-01', pauses: [] };
 const weekdays = { id: 'weekdays', name: 'Weekdays', frequency: 'days', days: [1, 2, 3, 4, 5], target: 1, created: '2026-01-01', pauses: [] };
 
- test('validates real calendar dates, rejecting rollover dates', () => {
+test('validates real calendar dates, rejecting rollover dates', () => {
   assert.equal(safety.validDate('2026-02-28'), true);
   assert.equal(safety.validDate('2026-02-30'), false);
   assert.equal(safety.validDate('2026-2-03'), false);
@@ -13,8 +13,8 @@ const weekdays = { id: 'weekdays', name: 'Weekdays', frequency: 'days', days: [1
 
 test('honors weekday schedules, creation and archive boundaries', () => {
   const logic = safety.createHabitLogic({ habits: [daily, weekdays, { ...daily, id: 'old', created: '2026-01-10', archived: '2026-01-12' }], records: {} });
-  assert.equal(logic.schedule(weekdays, '2026-01-05'), true); // Monday
-  assert.equal(logic.schedule(weekdays, '2026-01-04'), false); // Sunday
+  assert.equal(logic.schedule(weekdays, '2026-01-05'), true);
+  assert.equal(logic.schedule(weekdays, '2026-01-04'), false);
   assert.equal(logic.schedule(daily, '2025-12-31'), false);
   assert.equal(logic.schedule({ ...daily, id: 'old', created: '2026-01-10', archived: '2026-01-12' }, '2026-01-12'), false);
 });
@@ -54,5 +54,27 @@ test('validates backups atomically and remaps record keys with habit IDs', () =>
   assert.equal(normalized.records['2026-01-02'][normalized.habits[0].id].value, 5);
   assert.equal(Object.keys(normalized.records['2026-01-02']).length, 1);
   assert.equal(normalized.quotes[0].category, 'Resilience');
+  assert.equal(normalized.reflections['2026-01-02'].length, 1);
+  assert.equal(normalized.reflections['2026-01-02'][0].text, 'A reflection');
+  assert.equal(normalized.reflections['2026-01-02'][0].timestampEstimated, undefined);
   assert.throws(() => safety.validateBackup({ habits: [], quotes: [], records: { '2026-02-30': {} }, reflections: {} }));
+});
+
+test('migrates a legacy reflection string without losing content and keeps multiple entries independent', () => {
+  const migrated = safety.normalizeReflectionEntries('2026-04-03', 'Line one\n\nLine two');
+  assert.equal(migrated.length, 1);
+  assert.equal(migrated[0].text, 'Line one\n\nLine two');
+  assert.equal(migrated[0].createdAt, '2026-04-03T12:00:00.000Z');
+  const entries = safety.normalizeReflectionEntries('2026-04-03', [
+    { id: 'earlier', text: 'First', createdAt: '2026-04-03T08:00:00.000Z' },
+    { id: 'later', text: 'Second', createdAt: '2026-04-03T09:00:00.000Z' }
+  ]);
+  assert.deepEqual(entries.map(entry => entry.id), ['later', 'earlier']);
+});
+
+test('normalizes invalid reflection timestamps safely and retains valid unique IDs', () => {
+  const entries = safety.normalizeReflectionEntries('2026-04-03', [{ id: 'r1', text: 'Keep all lines\nnext', createdAt: 'not-a-date' }]);
+  assert.equal(entries[0].id, 'r1');
+  assert.equal(entries[0].text, 'Keep all lines\nnext');
+  assert.equal(entries[0].createdAt, '2026-04-03T12:00:00.000Z');
 });

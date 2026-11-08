@@ -4,6 +4,12 @@
   const bridge = () => window.DailyStandardQuoteBridge;
   if (!safety || !bridge()) return;
 
+  // Load the small Phase 1 UI layer after the app's original inline code and bridge are ready.
+  const phaseOne = document.createElement('script');
+  phaseOne.src = './phase1.js';
+  phaseOne.defer = true;
+  document.body.appendChild(phaseOne);
+
   // Expose safe schedule/status helpers to the existing global app, preserving its v1 storage format.
   const logic = () => safety.createHabitLogic(bridge().getState());
   window.schedule = (habit, date) => logic().schedule(habit, date);
