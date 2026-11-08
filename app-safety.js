@@ -14,6 +14,11 @@
     const date = new Date(`${value}T12:00:00`);
     return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
   };
+  const validDateTime = value => {
+    if (typeof value !== 'string' || !value.trim()) return false;
+    const parsed = new Date(value);
+    return !Number.isNaN(parsed.getTime());
+  };
   const numeric = (value, fallback = 0, min = 0, max = 1_000_000) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
@@ -26,6 +31,27 @@
     if (/^[\s\u0000-\u001f]*[=+@\-]/.test(cell)) cell = `'${cell}`;
     return `"${cell.replace(/"/g, '""')}"`;
   };
+
+  function normalizeReflectionEntries(dateKey, rawValue) {
+    const items = Array.isArray(rawValue) ? rawValue : [rawValue];
+    const result = [];
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+      if (item == null) continue;
+      const entry = isObject(item) ? item : { text: item };
+      const textValue = text(entry.text ?? entry, 100000);
+      if (!textValue) continue;
+      const createdAt = validDateTime(entry.createdAt || entry.created_at) ? entry.createdAt || entry.created_at : `${dateKey}T12:00:00.000Z`;
+      const updatedAt = validDateTime(entry.updatedAt || entry.updated_at) ? entry.updatedAt || entry.updated_at : createdAt;
+      result.push({
+        id: text(entry.id, 200) || `reflection-${dateKey}-${index}-${safeId()}`,
+        text: textValue,
+        createdAt,
+        updatedAt
+      });
+    }
+    return result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
 
   function validateBackup(input) {
     if (!isObject(input) || !Array.isArray(input.habits) || !Array.isArray(input.quotes) || !isObject(input.records) || !isObject(input.reflections)) {
@@ -52,7 +78,7 @@
       }
       const newId = safeId();
       idMap.set(oldId, newId);
-      return { ...raw, id: newId, name, target, step, created: raw.created || null, archived: raw.archived || null, days: Array.isArray(raw.days) ? [...new Set(raw.days)] : [], pauses: pauses.map(p => ({ ...p, reason: text(p.reason, 1000) })) };
+      return { ...raw, id: newId, name, target, step, created: raw.created || null, archived: raw.archived || null, days: Array.isArray(raw.days) ? [...new Set(raw.days)] : [], pauses: pauses.map(pause => ({ ...pause, start: pause.start, end: pause.end || null, reason: text(pause.reason, 1000) })) };
     });
 
     const records = {};
@@ -75,8 +101,9 @@
 
     const reflections = {};
     for (const [date, value] of Object.entries(input.reflections)) {
-      if (!validDate(date) || typeof value !== 'string') throw new Error(`Invalid reflection for ${date}.`);
-      reflections[date] = text(value, 100000);
+      if (!validDate(date)) throw new Error(`Invalid reflection for ${date}.`);
+      const entries = normalizeReflectionEntries(date, value);
+      if (entries.length) reflections[date] = entries;
     }
 
     const allowed = ['progress', 'habits', 'quote', 'verse'];
@@ -135,5 +162,5 @@
     return { schedule: isScheduled, pauseFor: pauseOn, entry: entryFor, status: getStatus, dayStats };
   }
 
-  return { isObject, text, safeId, validDate, numeric, quoteKey, csvCell, validateBackup, createHabitLogic };
+  return { isObject, text, safeId, validDate, validDateTime, numeric, quoteKey, csvCell, validateBackup, createHabitLogic, normalizeReflectionEntries };
 });
