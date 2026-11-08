@@ -14,11 +14,7 @@
     const date = new Date(`${value}T12:00:00`);
     return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
   };
-  const validDateTime = value => {
-    if (typeof value !== 'string' || !value.trim()) return false;
-    const parsed = new Date(value);
-    return !Number.isNaN(parsed.getTime());
-  };
+  const validDateTime = value => typeof value === 'string' && value.trim() !== '' && !Number.isNaN(new Date(value).getTime());
   const numeric = (value, fallback = 0, min = 0, max = 1_000_000) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
@@ -33,24 +29,34 @@
   };
 
   function normalizeReflectionEntries(dateKey, rawValue) {
-    const items = Array.isArray(rawValue) ? rawValue : [rawValue];
+    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+    const seenIds = new Set();
     const result = [];
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index];
-      if (item == null) continue;
-      const entry = isObject(item) ? item : { text: item };
-      const textValue = text(entry.text ?? entry, 100000);
-      if (!textValue) continue;
-      const createdAt = validDateTime(entry.createdAt || entry.created_at) ? entry.createdAt || entry.created_at : `${dateKey}T12:00:00.000Z`;
-      const updatedAt = validDateTime(entry.updatedAt || entry.updated_at) ? entry.updatedAt || entry.updated_at : createdAt;
-      result.push({
-        id: text(entry.id, 200) || `reflection-${dateKey}-${index}-${safeId()}`,
-        text: textValue,
-        createdAt,
-        updatedAt
-      });
-    }
+    values.forEach((value, index) => {
+      if (value == null) return;
+      const entry = isObject(value) ? value : { text: value };
+      const entryText = text(entry.text ?? value, 100000);
+      if (!entryText) return;
+      let id = text(entry.id, 200) || `reflection-${dateKey}-${index}-${safeId()}`;
+      if (seenIds.has(id)) id = `${id}-${safeId()}`;
+      seenIds.add(id);
+      const createdAt = validDateTime(entry.createdAt || entry.created_at) ? (entry.createdAt || entry.created_at) : `${dateKey}T12:00:00.000Z`;
+      const updatedAt = validDateTime(entry.updatedAt || entry.updated_at) ? (entry.updatedAt || entry.updated_at) : createdAt;
+      result.push({ id, text: entryText, createdAt, updatedAt, ...(entry.timestampEstimated ? { timestampEstimated: true } : {}) });
+    });
     return result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
+
+  function normalizeReflectionStore(input) {
+    if (input == null) return {};
+    if (!isObject(input)) throw new Error('Reflection entries must be grouped by date.');
+    const output = {};
+    for (const [date, entries] of Object.entries(input)) {
+      if (!validDate(date)) throw new Error(`Invalid reflection date “${date}”.`);
+      const normalized = normalizeReflectionEntries(date, entries);
+      if (normalized.length) output[date] = normalized;
+    }
+    return output;
   }
 
   function validateBackup(input) {
@@ -101,10 +107,10 @@
 
     const reflections = {};
     for (const [date, value] of Object.entries(input.reflections)) {
-      if (!validDate(date)) throw new Error(`Invalid reflection for ${date}.`);
-      const entries = normalizeReflectionEntries(date, value);
-      if (entries.length) reflections[date] = entries;
+      if (!validDate(date) || typeof value !== 'string') throw new Error(`Invalid reflection for ${date}.`);
+      reflections[date] = text(value, 100000);
     }
+    const reflectionEntries = normalizeReflectionStore(input.reflectionEntries);
 
     const allowed = ['progress', 'habits', 'quote', 'verse'];
     const defaults = { startHour: 8, endHour: 21, reminder: false, showProgress: true, showHabits: true, showQuote: true, showVerse: true, order: allowed };
@@ -115,7 +121,7 @@
     for (const key of ['reminder', 'showProgress', 'showHabits', 'showQuote', 'showVerse']) settings[key] = Boolean(settings[key]);
 
     return {
-      ...input, version: 1, habits, records, quotes, reflections, settings,
+      ...input, version: 1, habits, records, quotes, reflections, reflectionEntries, settings,
       theme: input.theme === 'light' ? 'light' : 'dark',
       verseHistory: Array.isArray(input.verseHistory) ? input.verseHistory.filter(item => isObject(item) && validDate(item.week) && Number.isInteger(item.index) && item.index >= 0).slice(-1000) : [],
       milestones: Array.isArray(input.milestones) ? input.milestones : []
@@ -162,5 +168,5 @@
     return { schedule: isScheduled, pauseFor: pauseOn, entry: entryFor, status: getStatus, dayStats };
   }
 
-  return { isObject, text, safeId, validDate, validDateTime, numeric, quoteKey, csvCell, validateBackup, createHabitLogic, normalizeReflectionEntries };
+  return { isObject, text, safeId, validDate, validDateTime, numeric, quoteKey, csvCell, validateBackup, createHabitLogic, normalizeReflectionEntries, normalizeReflectionStore };
 });
